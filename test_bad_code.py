@@ -1,9 +1,9 @@
 """Test file with code quality issues."""
 
 # Missing docstrings, poor naming, unused imports
-import sys
-import os
 import json
+import os
+import sys
 
 def a(x,y):
     z = x + y
