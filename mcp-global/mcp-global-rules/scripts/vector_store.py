@@ -18,7 +18,7 @@ from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field, asdict
 import hashlib
 
-from .utils import Console, find_python_files, find_project_root
+from .utils import Console, find_python_files, find_project_root, get_project_boundary
 from .embeddings import embed_text, embed_texts, cosine_similarity, embedding_dimension
 
 
@@ -63,7 +63,8 @@ class VectorStore:
 
     def __init__(self, index_path: Optional[Path] = None):
         if index_path is None:
-            root = find_project_root() or Path.cwd()
+            # Use project boundary to ensure we stay within installed project
+            root = get_project_boundary() or find_project_root() or Path.cwd()
             self.index_path = root / ".mcp" / "vector_index"
         else:
             self.index_path = Path(index_path)
@@ -355,7 +356,7 @@ def main():
     store = VectorStore()
 
     if command == 'index':
-        root = find_project_root() or Path.cwd()
+        root = get_project_boundary() or find_project_root() or Path.cwd()
         path = Path(args[1]) if len(args) > 1 else root
         store.index_codebase(path)
 

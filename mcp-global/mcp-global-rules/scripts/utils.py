@@ -121,6 +121,10 @@ def find_python_files(
 def find_project_root(start: Path = None) -> Optional[Path]:
     """
     Find the project root by looking for common markers.
+    
+    IMPORTANT: This function now respects the project boundary set by
+    get_project_boundary(). It will never return a directory outside
+    the project where mcp-global is installed.
 
     Args:
         start: Starting directory (defaults to cwd)
@@ -128,11 +132,17 @@ def find_project_root(start: Path = None) -> Optional[Path]:
     Returns:
         Project root path or None
     """
-    # 1. Try environment variable set by mcp.py
-    mcp_root_env = os.environ.get('MCP_ROOT')
-
+    # First, get the project boundary - we will not search beyond this
+    boundary = get_project_boundary()
+    
     if start is None:
         start = Path.cwd()
+    
+    # Ensure start is within boundary
+    start = Path(start).resolve()
+    if boundary and not is_path_within_boundary(start, boundary):
+        # If start is outside boundary, use boundary as start
+        start = boundary
 
     markers = ['.git', 'pyproject.toml', 'setup.py', 'setup.cfg', '.mcp']
 
@@ -143,37 +153,18 @@ def find_project_root(start: Path = None) -> Optional[Path]:
                 return True
         return False
 
-    # A. Search up from the MCP package location first (Strongest signal)
-    # If mcp-global-rules is inside a project, that's likely the project we want.
-    if mcp_root_env:
-        mcp_root = Path(mcp_root_env).resolve()
-
-        # Check parent of mcp-global-rules (common case)
-        if check_dir(mcp_root.parent):
-            return mcp_root.parent
-
-        # Search up from mcp_root
-        curr = mcp_root.parent
-        while curr != curr.parent:
-            if check_dir(curr):
-                return curr
-            curr = curr.parent
-
-    # B. Search up from start (cwd)
-    if start is None:
-        start = Path.cwd()
-
-    current = Path(start).resolve()
+    # Search up from start, but stop at boundary
+    current = start
     while current != current.parent:
         if check_dir(current):
             return current
+        # Stop at project boundary
+        if boundary and current == boundary:
+            break
         current = current.parent
 
-    # C. Last resort: if we have mcp_root, return its parent even without markers
-    if mcp_root_env:
-        return Path(mcp_root_env).resolve().parent
-
-    return None
+    # Return boundary if we have one, otherwise None
+    return boundary
 
 
 def get_package_root() -> Path:
@@ -184,6 +175,126 @@ def get_package_root() -> Path:
 
     # Fallback to __file__ resolution
     return Path(__file__).resolve().parent.parent
+
+
+def get_project_boundary(start: Path = None) -> Optional[Path]:
+    """
+    Get the strict project boundary where mcp-global is installed.
+    
+    This function returns the root directory of the project where mcp-global
+    was installed. All MCP operations should be confined within this boundary.
+    
+    Resolution order:
+    1. PROJECT_ROOT environment variable (set by mcp.py on startup)
+    2. .mcp/project_root marker file (created during installation)
+    3. Parent of mcp-global-rules directory (fallback)
+    
+    Args:
+        start: Starting directory for marker search (defaults to cwd)
+    
+    Returns:
+        The project boundary path, or None if cannot be determined
+    """
+    # 1. Check PROJECT_ROOT environment variable (strongest signal)
+    project_root_env = os.environ.get('PROJECT_ROOT')
+    if project_root_env:
+        project_root = Path(project_root_env).resolve()
+        if project_root.exists():
+            return project_root
+    
+    # 2. Look for .mcp/project_root marker file
+    if start is None:
+        start = Path.cwd()
+    
+    current = Path(start).resolve()
+    # Walk up looking for the marker, but limit depth to avoid infinite loops
+    max_depth = 20
+    depth = 0
+    while current != current.parent and depth < max_depth:
+        marker_file = current / '.mcp' / 'project_root'
+        if marker_file.exists():
+            try:
+                # The marker file contains the absolute path to project root
+                marker_content = marker_file.read_text(encoding='utf-8').strip()
+                if marker_content:
+                    marker_path = Path(marker_content).resolve()
+                    if marker_path.exists():
+                        return marker_path
+                # If marker is empty or invalid, use the directory containing .mcp
+                return current
+            except Exception:
+                # If we can't read the marker, use the directory containing .mcp
+                return current
+        current = current.parent
+        depth += 1
+    
+    # 3. Fallback: Use parent of mcp-global-rules directory
+    mcp_root_env = os.environ.get('MCP_ROOT')
+    if mcp_root_env:
+        mcp_root = Path(mcp_root_env).resolve()
+        if mcp_root.exists():
+            return mcp_root.parent
+    
+    # 4. Ultimate fallback: try to find mcp-global-rules from __file__
+    try:
+        package_root = Path(__file__).resolve().parent.parent
+        if package_root.name == 'mcp-global-rules':
+            return package_root.parent
+    except Exception:
+        pass
+    
+    return None
+
+
+def is_path_within_boundary(path: Path, boundary: Path) -> bool:
+    """
+    Check if a path is within the project boundary.
+    
+    Args:
+        path: Path to check
+        boundary: Project boundary path
+    
+    Returns:
+        True if path is within or equal to boundary
+    """
+    try:
+        path = Path(path).resolve()
+        boundary = Path(boundary).resolve()
+        # Check if path starts with boundary
+        return str(path).startswith(str(boundary))
+    except Exception:
+        return False
+
+
+def validate_path_in_project(path: Path, project_root: Path = None) -> Path:
+    """
+    Validate that a path is within the project boundary.
+    
+    Args:
+        path: Path to validate
+        project_root: Project root (defaults to get_project_boundary())
+    
+    Returns:
+        The validated path
+    
+    Raises:
+        ValueError: If path is outside project boundary
+    """
+    if project_root is None:
+        project_root = get_project_boundary()
+    
+    if project_root is None:
+        # No boundary set, allow all paths
+        return Path(path).resolve()
+    
+    resolved_path = Path(path).resolve()
+    if not is_path_within_boundary(resolved_path, project_root):
+        raise ValueError(
+            f"Path '{resolved_path}' is outside project boundary '{project_root}'. "
+            f"MCP operations are restricted to the project folder."
+        )
+    
+    return resolved_path
 
 
 # =============================================================================

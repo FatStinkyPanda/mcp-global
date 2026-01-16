@@ -1,8 +1,13 @@
 #!/bin/bash
-# MCP Post-commit Hook
-# Learning, index update, context map refresh
-echo "[MCP] Updating learning and indexes..."
-# Use virtual environment python if available
+# MCP Post-commit Hook - ENHANCED
+# Maximum learning: extracts lessons, updates indexes, tracks commits
+
+echo ""
+echo "======================================================"
+echo "[MCP] POST-COMMIT: Learning from success"
+echo "======================================================"
+
+# Detect Python
 if [ -f "./.venv/Scripts/python" ]; then
     PYTHON_CMD="./.venv/Scripts/python"
 elif [ -f "./.venv/bin/python" ]; then
@@ -11,7 +16,40 @@ else
     PYTHON_CMD="python"
 fi
 
-$PYTHON_CMD mcp-global/mcp-global-rules/mcp.py learn
-$PYTHON_CMD mcp-global/mcp-global-rules/mcp.py summarize --output CODEBASE_SUMMARY.md
-$PYTHON_CMD mcp-global/mcp-global-rules/mcp.py index-all --quick
-$PYTHON_CMD mcp-global/mcp-global-rules/mcp.py trigger-loop
+# Find mcp.py path
+if [ -f "mcp-global-rules/mcp.py" ]; then
+    MCP="mcp-global-rules/mcp.py"
+elif [ -f "mcp-global/mcp-global-rules/mcp.py" ]; then
+    MCP="mcp-global/mcp-global-rules/mcp.py"
+else
+    echo "[MCP] Warning: mcp.py not found"
+    exit 0
+fi
+
+# CRITICAL: Record commit for bypass detection
+# This runs even if pre-commit was skipped with --no-verify
+echo "[1/5] Recording commit (bypass detection)..."
+$PYTHON_CMD $MCP hook-guardian --record-commit
+
+# Learn from commit message
+echo "[2/5] Extracting lessons from commit..."
+$PYTHON_CMD $MCP auto-learn --from-commit 2>/dev/null || true
+
+# Update co-modification patterns
+echo "[3/5] Learning file correlations..."
+$PYTHON_CMD $MCP learn-patterns --quick 2>/dev/null || true
+
+# Quick index update
+echo "[4/5] Updating indexes..."
+$PYTHON_CMD $MCP index-all --quick 2>/dev/null || true
+
+# Generate summary
+echo "[5/5] Updating codebase summary..."
+$PYTHON_CMD $MCP summarize --output CODEBASE_SUMMARY.md 2>/dev/null || true
+
+echo ""
+echo "[MCP] Post-commit learning complete"
+echo "======================================================"
+
+# Trigger agent loop if configured
+$PYTHON_CMD $MCP trigger-loop 2>/dev/null || true

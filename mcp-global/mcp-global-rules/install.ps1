@@ -116,15 +116,20 @@ else {
 }
 
 # ============================================================================
-# STEP 3: Create .mcp directory
+# STEP 3: Create .mcp directory and project boundary marker
 # ============================================================================
-Write-Info "Step 3/5: Creating MCP data directory..."
+Write-Info "Step 3/5: Creating MCP data directory and project boundary..."
 
 $MCPData = Join-Path $ProjectRoot ".mcp"
 if (-not (Test-Path $MCPData)) {
     New-Item -ItemType Directory -Path $MCPData -Force | Out-Null
 }
-Write-Ok "Created .mcp/"
+
+# Create project root marker file - this defines the strict boundary for MCP operations
+# All MCP operations will be confined within this boundary
+$ProjectRootMarker = Join-Path $MCPData "project_root"
+$ProjectRoot.Path | Out-File -FilePath $ProjectRootMarker -Encoding UTF8 -NoNewline
+Write-Ok "Created .mcp/ with project boundary marker"
 
 # ============================================================================
 # STEP 4: Build initial indexes

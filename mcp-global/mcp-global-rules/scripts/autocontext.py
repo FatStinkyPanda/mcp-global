@@ -17,7 +17,7 @@ import json
 import os
 import sys
 
-from .utils import Console, find_project_root
+from .utils import Console, find_project_root, get_project_boundary
 
 
 @dataclass
@@ -47,7 +47,7 @@ class ContextResult:
 
 def get_cache_path(root: Path = None) -> Path:
     """Get path to context cache."""
-    root = root or find_project_root() or Path.cwd()
+    root = root or get_project_boundary() or find_project_root() or Path.cwd()
     return root / '.mcp' / 'memory' / 'context_cache.json'
 
 
@@ -102,7 +102,7 @@ def get_recent_context(
 ) -> ContextResult:
     """Get context from recently accessed files."""
     cache = load_cache(root)
-    root = root or find_project_root() or Path.cwd()
+    root = root or get_project_boundary() or find_project_root() or Path.cwd()
 
     files = []
     token_count = 0
@@ -132,7 +132,7 @@ def get_hot_context(
 ) -> ContextResult:
     """Get context from most frequently accessed files."""
     cache = load_cache(root)
-    root = root or find_project_root() or Path.cwd()
+    root = root or get_project_boundary() or find_project_root() or Path.cwd()
 
     # Sort by access count
     sorted_files = sorted(cache.hot_files.items(), key=lambda x: x[1], reverse=True)
@@ -164,7 +164,7 @@ def get_semantic_context(
     root: Path = None
 ) -> ContextResult:
     """Get context via semantic search."""
-    root = root or find_project_root() or Path.cwd()
+    root = root or get_project_boundary() or find_project_root() or Path.cwd()
 
     files = []
     token_count = 0
@@ -195,7 +195,7 @@ def get_dependency_context(
     root: Path = None
 ) -> ContextResult:
     """Get context from file dependencies (imports)."""
-    root = root or find_project_root() or Path.cwd()
+    root = root or get_project_boundary() or find_project_root() or Path.cwd()
 
     files = []
     token_count = 0
@@ -247,91 +247,166 @@ def get_auto_context(
     token_budget: int = 8000, # Increased default for deep context
     root: Path = None
 ) -> str:
-    """Get hierarchically layered context for AI agent."""
-    root = root or find_project_root() or Path.cwd()
+    """
+    Get hierarchically layered context for AI agent.
+    
+    Implements 3-Tier Context Strategy:
+    - Tier 1 (Warm): State + Lessons - ALWAYS included, never skipped
+    - Tier 2 (Structure): Skeleton overview + Graph relationships
+    - Tier 3 (Active): Recent files + Dependencies + Semantic results
+    """
+    root = root or get_project_boundary() or find_project_root() or Path.cwd()
 
-    # Budget Allocation
-    budget_map = int(token_budget * 0.05)
-    budget_mem = int(token_budget * 0.10)
-    budget_active = int(token_budget * 0.40)
-    budget_semantic = token_budget - (budget_map + budget_mem + budget_active)
+    # Budget Allocation (3-Tier Strategy)
+    budget_warm = int(token_budget * 0.10)      # State + lessons (ALWAYS)
+    budget_skeleton = int(token_budget * 0.15)  # Codebase structure
+    budget_graph = int(token_budget * 0.15)     # Related files from graph
+    budget_active = int(token_budget * 0.30)    # Recent + dependencies
+    budget_semantic = int(token_budget * 0.30)  # Search results
 
     layers = []
-
-    # Layer 1: Project Map
-    project_map = get_project_map(root, budget_map)
-    if project_map:
-        layers.append(project_map)
-
-    # Layer 2: Memory
-    memories = []
+    
+    # =========================================================================
+    # TIER 1: WARM CONTEXT (Always Injected - Project Consciousness)
+    # =========================================================================
+    warm_context = []
+    
+    # 1a. Project State (Goal, Current Task, Next Steps)
+    try:
+        from .project_state import load_state, get_warm_context as get_state_context
+        state = load_state(root)
+        state_context = get_state_context(state, max_tokens=budget_warm // 2)
+        if state_context:
+            warm_context.append(state_context)
+    except Exception:
+        pass
+    
+    # 1b. Lessons Learned (Critical - Never Repeat Mistakes)
+    try:
+        lessons_file = root / '.mcp' / 'lessons_learned.md'
+        if lessons_file.exists():
+            lessons = lessons_file.read_text(encoding='utf-8')[:budget_warm * 2]  # ~chars
+            if lessons.strip():
+                warm_context.append("## Lessons Learned (CRITICAL)\n" + lessons)
+    except Exception:
+        pass
+    
+    # 1c. Memory/Decisions
     try:
         from .memory import get_store
         store = get_store()
         recent_mems = store.recall(task) if task else store.list_all()
         recent_mems.sort(key=lambda m: m.updated or m.created, reverse=True)
-
-        mem_tokens_used = 0
+        
+        mem_lines = []
         for mem in recent_mems[:5]:
-            encoded = f"[{mem.key}] {mem.value}"
-            if mem_tokens_used + len(encoded.split()) < budget_mem:
-                memories.append(encoded)
-                mem_tokens_used += len(encoded.split())
+            mem_lines.append(f"- [{mem.key}] {mem.value}")
+        if mem_lines:
+            warm_context.append("## Remembered\n" + "\n".join(mem_lines))
     except Exception:
         pass
-
-    if memories:
-        layers.append("# Recent Memory & Decisions\n" + "\n".join(memories))
-
-    # Layer 3: Active & Dependencies
-    active_files = {} # path -> content
+    
+    if warm_context:
+        layers.append("# Project Context (Warm - Always Present)\n" + "\n\n".join(warm_context))
+    
+    # =========================================================================
+    # TIER 2: STRUCTURE (Skeleton + Graph)
+    # =========================================================================
+    
+    # 2a. Codebase Skeleton (Compressed Overview)
+    try:
+        from .skeleton import get_skeleton_for_context
+        skeleton = get_skeleton_for_context(root, max_tokens=budget_skeleton)
+        if skeleton:
+            layers.append(skeleton)
+    except Exception:
+        pass
+    
+    # 2b. Call Graph (Related Files for Task)
+    graph_files = []
+    if task:
+        try:
+            from .call_graph import load_call_graph, query_graph
+            graph = load_call_graph(root)
+            if graph:
+                # Extract key terms from task
+                task_terms = [t.lower() for t in task.split() if len(t) > 3]
+                related = set()
+                
+                for term in task_terms[:3]:
+                    result = query_graph(graph, term)
+                    related.update(result.get('related_files', []))
+                
+                if related:
+                    graph_files = list(related)[:5]
+                    layers.append("## Related Files (from Graph)\n" + "\n".join(f"- `{f}`" for f in graph_files))
+        except Exception:
+            pass
+    
+    # =========================================================================
+    # TIER 3: ACTIVE CONTEXT (Files + Semantic)
+    # =========================================================================
+    active_files = {}
     active_tokens = 0
 
-    # 3a. Recent Files (Active)
+    # 3a. Recent Files
     recent = get_recent_context(limit=3, root=root)
     for path, content in recent.files:
         if active_tokens < budget_active:
-            active_files[path] = content
+            active_files[path] = content[:2000]
             active_tokens += len(content.split())
 
-            # 3b. Dependencies of Active
+    # 3b. Graph-Related Files (load content if budget allows)
+    for gf in graph_files:
+        if gf not in active_files and active_tokens < budget_active:
             try:
-                from .deps import analyze_imports
-                deps = analyze_imports(Path(path))
-                if deps:
-                    # Very simple heuristic: try to find local module file
-                    for imp in list(deps.imports)[:2]:
-                        # Try finding file
-                        local_path = root / f"{imp.replace('.', '/')}.py"
-                        if local_path.exists() and str(local_path) not in active_files:
-                             dep_content = local_path.read_text(encoding='utf-8')[:1000]
-                             if active_tokens + len(dep_content.split()) < budget_active:
-                                 active_files[str(local_path)] = dep_content
-                                 active_tokens += len(dep_content.split())
+                gf_path = Path(gf)
+                if gf_path.exists():
+                    content = gf_path.read_text(encoding='utf-8')[:1500]
+                    active_files[gf] = content
+                    active_tokens += len(content.split())
             except Exception:
                 pass
 
-    # Layer 4: Semantic Search
+    # 3c. Dependencies of Active Files
+    for path in list(active_files.keys())[:2]:
+        try:
+            from .deps import analyze_imports
+            deps = analyze_imports(Path(path))
+            if deps:
+                for imp in list(deps.imports)[:2]:
+                    local_path = root / f"{imp.replace('.', '/')}.py"
+                    if local_path.exists() and str(local_path) not in active_files:
+                        if active_tokens + 200 < budget_active:
+                            dep_content = local_path.read_text(encoding='utf-8')[:1000]
+                            active_files[str(local_path)] = dep_content
+                            active_tokens += len(dep_content.split())
+        except Exception:
+            pass
+
+    # 3d. Semantic Search Results
     semantic_content = []
     if task:
         semantic = get_semantic_context(task, limit=5, root=root)
         semantic_tokens = 0
         for path, content in semantic.files:
             if path not in active_files and semantic_tokens < budget_semantic:
-                semantic_content.append(f"## {Path(path).name} (Relevant)\n# {path}\n```python\n{content}\n```")
+                semantic_content.append(f"## {Path(path).name} (Semantic Match)\n```python\n{content[:1500]}\n```")
                 semantic_tokens += len(content.split())
 
-    # Assemble
+    # =========================================================================
+    # ASSEMBLE FINAL OUTPUT
+    # =========================================================================
     final_output = ["# Deep Context Auto-Loader", ""]
     final_output.extend(layers)
 
     if active_files:
-        final_output.append("# Active Context")
-        for path, content in active_files.items():
-            final_output.append(f"## {Path(path).name}\n# {path}\n```python\n{content[:2000]}\n```\n")
+        final_output.append("\n# Active Context")
+        for path, content in list(active_files.items())[:5]:
+            final_output.append(f"## {Path(path).name}\n# {path}\n```python\n{content}\n```\n")
 
     if semantic_content:
-        final_output.append("# Semantic Context")
+        final_output.append("\n# Semantic Context")
         final_output.extend(semantic_content)
 
     return "\n".join(final_output)
@@ -352,7 +427,7 @@ def main():
 
     args = [a for a in sys.argv[1:] if not a.startswith('-')]
 
-    root = find_project_root() or Path.cwd()
+    root = get_project_boundary() or find_project_root() or Path.cwd()
 
     if '--recent' in sys.argv:
         result = get_recent_context(root=root)

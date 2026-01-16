@@ -17,6 +17,7 @@ import sys
 from .utils import (
     find_python_files,
     find_project_root,
+    get_project_boundary,
     parse_file,
     analyze_module,
     run_git_command,
@@ -278,7 +279,7 @@ def main():
     if len(args) > 1:
         path = Path(args[1])
     else:
-        path = find_project_root() or Path.cwd()
+        path = get_project_boundary() or find_project_root() or Path.cwd()
 
     if not path.exists():
         Console.fail(f"Path not found: {path}")

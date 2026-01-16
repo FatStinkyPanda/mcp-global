@@ -14,12 +14,12 @@ import json
 import sys
 import time
 
-from .utils import Console, find_project_root
+from .utils import Console, find_project_root, get_project_boundary
 
 
 def run_all_indexes(root: Path = None, verbose: bool = True) -> dict:
     """Run all indexes and return summary."""
-    root = root or find_project_root() or Path.cwd()
+    root = root or get_project_boundary() or find_project_root() or Path.cwd()
 
     if verbose:
         Console.header("Full Index Build")
@@ -125,7 +125,7 @@ def run_all_indexes(root: Path = None, verbose: bool = True) -> dict:
 
 def show_index_status(root: Path = None):
     """Show what's currently indexed."""
-    root = root or find_project_root() or Path.cwd()
+    root = root or get_project_boundary() or find_project_root() or Path.cwd()
     mcp_dir = root / '.mcp'
 
     print("\n## Index Status")
@@ -157,7 +157,7 @@ def show_index_status(root: Path = None):
 
 def main():
     """CLI entry point."""
-    root = find_project_root() or Path.cwd()
+    root = get_project_boundary() or find_project_root() or Path.cwd()
 
     if '--what' in sys.argv or '--status' in sys.argv:
         Console.header("Index Status")

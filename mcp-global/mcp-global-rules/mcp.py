@@ -68,8 +68,39 @@ if MCP_ROOT is None:
 if str(MCP_ROOT) not in sys.path:
     sys.path.insert(0, str(MCP_ROOT))
 
-# Store for other modules to use
+# Store MCP_ROOT for other modules to use
 os.environ['MCP_ROOT'] = str(MCP_ROOT)
+
+# =============================================================================
+# CRITICAL: Set PROJECT_ROOT - the strict boundary for all MCP operations
+# =============================================================================
+# PROJECT_ROOT is the parent directory of mcp-global-rules, which is where
+# mcp-global was installed. All MCP operations must be confined within this
+# boundary to prevent indexing/operating on files outside the project.
+
+def get_project_root():
+    """Determine the project root (parent of mcp-global-rules directory)."""
+    # First check if already set
+    if os.environ.get('PROJECT_ROOT'):
+        return Path(os.environ['PROJECT_ROOT']).resolve()
+    
+    # Look for .mcp/project_root marker file
+    marker_file = MCP_ROOT.parent / '.mcp' / 'project_root'
+    if marker_file.exists():
+        try:
+            marker_content = marker_file.read_text(encoding='utf-8').strip()
+            if marker_content:
+                marker_path = Path(marker_content).resolve()
+                if marker_path.exists():
+                    return marker_path
+        except Exception:
+            pass
+    
+    # Default: parent of mcp-global-rules
+    return MCP_ROOT.parent
+
+PROJECT_ROOT = get_project_root()
+os.environ['PROJECT_ROOT'] = str(PROJECT_ROOT)
 
 
 def show_help():
@@ -203,6 +234,23 @@ COMMANDS = {
     'setup': 'setup',
     'warm': 'warm',
     'auto-learn': 'auto_learn',
+    # Skeleton Context System
+    'skeleton': 'skeleton',
+    'graph': 'call_graph',
+    'call-graph': 'call_graph',
+    'state': 'project_state',
+    'project-state': 'project_state',
+    # Advanced Automation
+    'predict-context': 'predict_context',
+    'heal': 'auto_heal',
+    'lessons': 'auto_heal',
+    # Hybrid Knowledge Graph
+    'hybrid-search': 'hybrid_graph',
+    'hybrid': 'hybrid_graph',
+    'correlate': 'correlation_tracker',
+    'learn-patterns': 'correlation_tracker',
+    # Hook Enforcement
+    'hook-guardian': 'hook_guardian',
 }
 
 

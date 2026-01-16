@@ -2,120 +2,122 @@
 
 ## Overview
 
-This document defines **mandatory workflows** for AI agents working with MCP-enabled projects. These workflows are automatically enforced via git hooks.
-
-## Continuous Development Mode (Orchestration)
-For "Always-On" development task:
-1. **Take Ownership**: You are the Orchestrator. Manage the lifecycle.
-2. **Check Triggers**: Review "Agent Manager" for external events/bug reports.
-3. **Cycle Models**: Use the most appropriate model (Gemini/Claude/Local) for the sub-task.
-4. **Enforce Quality**: Do not mark "Done" until `mcp review`, `mcp security`, and `mcp test` pass 100%.
+This document defines **mandatory workflows** for AI agents working with MCP-enabled projects. Workflows are **automatically enforced** via git hooks with **bypass detection**.
 
 ## Required Tool Usage
 
-AI agents MUST use these tools when working on code:
-
-### Before Making Changes
+### Before Making Changes - Context Loading
 ```bash
-python mcp.py context "what I'm working on"   # Get relevant context
-python mcp.py find "component name"           # Find related files
-python mcp.py deps src/                       # Understand dependencies
+python mcp.py autocontext             # Load 3-tier context (warm+skeleton+semantic)
+python mcp.py predict-context "task"  # Pre-bundle files for your task
+python mcp.py hybrid-search "query"   # Multi-dimensional code search
+python mcp.py skeleton src/           # Get signature-only views (28% smaller)
+python mcp.py graph "function"        # Query call graph relationships
+python mcp.py state                   # View project goals/tasks/lessons
 ```
 
 ### During Development
 ```bash
-python mcp.py docs src/ --write               # Add docstrings as you go
-python mcp.py fix src/                        # Auto-fix issues
-python mcp.py review src/                     # Check quality continuously
+python mcp.py predict-bugs file.py    # Predict bugs before they happen
+python mcp.py heal "error message"    # Get fix suggestions for errors
+python mcp.py fix src/ --safe         # Auto-fix safe issues
+python mcp.py review src/             # Check quality continuously
 ```
 
 ### Before Committing
 ```bash
-python mcp.py review src/ --strict            # Full review
-python mcp.py security src/                   # Security audit
-python mcp.py deadcode src/                   # Find unused code
-python mcp.py coverage src/                   # Check doc coverage
+python mcp.py review src/ --strict    # Full quality review
+python mcp.py security src/           # Security audit
+python mcp.py heal --learn "lesson"   # Record lessons learned
 ```
 
-### Before Pushing
+### Automatic (via Hooks)
 ```bash
-python mcp.py architecture src/               # Validate structure
-python mcp.py profile src/                    # Check complexity
-python mcp.py summarize --output SUMMARY.md   # Update context
+# pre-commit: Records flag + fix + bugs + security + review + patterns
+# post-commit: Records commit + auto-learn + correlations + index
+# pre-push: Verifies bypasses + security + architecture
 ```
 
-## Automatic Enforcement
+## Hook Enforcement (Strict)
 
-These hooks run automatically:
+| Hook | Actions | Blocking |
+|------|---------|----------|
+| pre-commit | fix, predict-bugs, security, review, patterns | Yes |
+| post-commit | auto-learn, correlations, index, summarize | No |
+| pre-push | verify-bypasses, security, architecture | Yes |
 
-| Hook | Tools Run | Blocking |
-|------|-----------|----------|
-| pre-commit | review, security, coverage, errors, profile | Yes (on errors) |
-| pre-push | security, architecture, coverage, deps | Yes (strict) |
-| commit-msg | Context enrichment | No |
+**Bypass Detection**: Using `--no-verify` is logged. Warnings shown on push.
 
-## Quality Gates
-
-Commits are BLOCKED if:
-- Security scan finds CRITICAL issues
-- Code review finds errors
-- Doc coverage < 50% (pre-push)
-- Architecture violations exist
-
-## MCP Memory
-
-Always record actions:
 ```bash
-mcp record action "Implemented feature X"
-mcp record decision "Chose approach Y because Z"
-mcp record todo "Need to refactor W later"
+mcp hook-guardian              # View bypass status
+mcp hook-guardian --verify-all # Check for bypassed commits
+mcp hook-guardian --reconcile  # Run skipped checks
 ```
 
-## Workflow Example
+## Learning System
 
+MCP learns automatically from every interaction:
+
+| Source | Command | What It Learns |
+|--------|---------|----------------|
+| Commits | `auto-learn --from-commit` | Lessons from messages |
+| Tests | `auto-learn --from-test 0` | Success/failure patterns |
+| Access | Automatic | File sequences (A→B→C) |
+| Git | `learn-patterns` | Co-modification patterns |
+
+### Recording Knowledge
 ```bash
-# 1. Start by understanding context
-python mcp.py context "authentication"
-python mcp.py find "login handler"
-
-# 2. Make changes, checking frequently
-python mcp.py review src/ --staged
-python mcp.py security src/
-
-# 3. Document and fix
-python mcp.py docs src/ --write
-python mcp.py fix src/
-
-# 4. Record and commit
-mcp record action "Added OAuth support"
-git add -A
-git commit -m "feat: add OAuth authentication"
-
-# 5. Pre-push quality check
-python mcp.py architecture src/
-python mcp.py summarize
-git push
+mcp heal --learn "Use pathlib instead of os.path"
+mcp remember "auth" "src/auth/handler.py"
+mcp state --set-goal "Complete authentication"
 ```
 
 ## Tool Quick Reference
 
 | Need | Command |
 |------|---------|
-| Find related code | `python mcp.py find "query"` |
-| Get context | `python mcp.py context "task"` |
-| Check quality | `python mcp.py review src/` |
-| Audit security | `python mcp.py security src/` |
-| Add docs | `python mcp.py docs src/ --write` |
-| Auto-fix | `python mcp.py fix src/` |
-| Check complexity | `python mcp.py profile src/` |
-| Check architecture | `python mcp.py architecture src/` |
-| Check doc coverage | `python mcp.py coverage src/` |
-| Analyze errors | `python mcp.py errors src/` |
-| Check migration | `python mcp.py migrate src/` |
-| Gen API docs | `python mcp.py apidocs src/` |
-| Find unused | `python mcp.py deadcode src/` |
-| Analyze deps | `python mcp.py deps src/` |
-| Gen summary | `python mcp.py summarize src/` |
-| Suggest refactor | `python mcp.py refactor src/` |
-| Gen tests | `python mcp.py test src/` |
-| Gen changelog | `python mcp.py changelog` |
+| **Load context** | `mcp autocontext` |
+| **Predict files** | `mcp predict-context "task"` |
+| **Multi-dim search** | `mcp hybrid-search "query"` |
+| **Code skeletons** | `mcp skeleton src/` |
+| **Call graph** | `mcp graph "function"` |
+| **Project state** | `mcp state` |
+| **Predict bugs** | `mcp predict-bugs .` |
+| **Error help** | `mcp heal "error"` |
+| **Add lesson** | `mcp heal --learn "lesson"` |
+| **Check bypasses** | `mcp hook-guardian` |
+| **File correlations** | `mcp correlate` |
+
+## Advanced Commands
+
+| Category | Commands |
+|----------|----------|
+| **Context** | `autocontext`, `predict-context`, `search`, `find` |
+| **Skeleton** | `skeleton`, `graph`, `call-graph`, `state` |
+| **Hybrid** | `hybrid-search`, `correlate`, `learn-patterns` |
+| **Learning** | `auto-learn`, `heal`, `lessons` |
+| **Hooks** | `hook-guardian` |
+| **Analysis** | `review`, `security`, `predict-bugs`, `profile` |
+
+## Workflow Example
+
+```bash
+# 1. Load context and predict needed files
+mcp autocontext
+mcp predict-context "add user authentication"
+
+# 2. Understand codebase structure
+mcp skeleton src/auth/
+mcp graph "login"
+
+# 3. Make changes with continuous checks
+mcp predict-bugs .
+mcp review . --staged
+
+# 4. Record lessons and commit
+mcp heal --learn "Always hash passwords with bcrypt"
+git commit -m "feat: add user authentication"
+
+# 5. Verify and push (hooks run automatically)
+git push  # Hook guardian verifies no bypasses
+```
