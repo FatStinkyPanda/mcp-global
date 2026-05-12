@@ -38,5 +38,19 @@ ENV/
 .DS_Store
 Thumbs.db
 
-# MCP data (project-specific, regenerated)
-# Keep .mcp/ tracked for template purposes
+# MCP runtime data (project-specific, auto-regenerated — do not commit)
+.mcp/
+
+# Temporary Claude/AI agent session files
+tmpclaude-*
+tmp-*
+
+# AI agent working files (machine-specific)
+.agent
+.claude
+.gemini
+
+# Screenshot artifacts
+*.png
+*.jpg
+*.jpeg
