@@ -2,7 +2,11 @@
 
 > **AI Agent Enhancement Package** — 53 Scripts | 48 Commands | 6 Git Hooks | Offline-First
 
+Created by **[FatStinkyPanda](https://github.com/FatStinkyPanda)**
+
 MCP Global Rules is a drop-in AI agent enhancement system that installs into any project and gives every AI agent working on it a shared set of tools, memory, code analysis, security scanning, autonomous development workflows, and enforced quality gates. It works completely offline and requires only Python 3.8+.
+
+Originally built to accelerate ML research and experimentation workflows, MCP Global has grown into a powerful, general-purpose tool that works equally well for any kind of software project.
 
 ---
 
@@ -415,6 +419,22 @@ These principles are enforced by the system and must be followed by all agents:
 4. **Autonomous Collaboration** — Agents must coordinate via `mcp comms` to avoid conflicts. Zero human intervention is the goal.
 
 5. **Model Priority Enforcement** — Gemini Flash first, Claude Opus second, local LLM as fallback. Switch automatically on rate limits.
+
+---
+
+## About the Author
+
+MCP Global was created by **[FatStinkyPanda](https://github.com/FatStinkyPanda)**, a machine learning engineer specializing in:
+
+- Designing and training research AI models using **PyTorch** and (occasionally) **TensorFlow**
+- Building entire **AI model architectures from scratch** — transformers, custom attention mechanisms, novel training paradigms
+- End-to-end ML research pipelines, from dataset curation through training, evaluation, and deployment
+
+This project was born out of a need to move faster across many parallel research experiments. Managing code quality, context, memory, and agent coordination by hand across dozens of experimental branches was a constant bottleneck. MCP Global was built to eliminate that overhead entirely.
+
+While it was designed with ML research workflows in mind, the system is completely general-purpose and has proven equally effective for web development, systems programming, data engineering, and any other project where AI agents are part of the development process.
+
+> If you find this useful, give it a star and check out my other work at [github.com/FatStinkyPanda](https://github.com/FatStinkyPanda).
 
 ---
 
