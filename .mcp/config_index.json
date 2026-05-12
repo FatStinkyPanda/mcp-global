@@ -1,0 +1,58 @@
+{
+  "config_files": [],
+  "env_vars": {},
+  "env_usage": {
+    "mcp-global-rules\\mcp.py": [
+      "MCP_ROOT"
+    ],
+    "mcp-global-rules\\scripts\\agent_comms.py": [
+      "AGENT_IDENTITY"
+    ],
+    "mcp-global-rules\\scripts\\agent_launcher.py": [
+      "TEMP"
+    ],
+    "mcp-global-rules\\scripts\\config_index.py": [
+      "yml",
+      "py",
+      "json",
+      "yaml"
+    ],
+    "mcp-global-rules\\scripts\\telegram_bridge.py": [
+      "last_update_id"
+    ],
+    "mcp-global-rules\\scripts\\utils.py": [
+      "MCP_ROOT"
+    ],
+    "mcp-global\\mcp-global-rules\\mcp.py": [
+      "MCP_ROOT"
+    ],
+    "mcp-global\\mcp-global-rules\\scripts\\agent_comms.py": [
+      "AGENT_IDENTITY"
+    ],
+    "mcp-global\\mcp-global-rules\\scripts\\agent_launcher.py": [
+      "TEMP"
+    ],
+    "mcp-global\\mcp-global-rules\\scripts\\config_index.py": [
+      "yml",
+      "py",
+      "json",
+      "yaml"
+    ],
+    "mcp-global\\mcp-global-rules\\scripts\\telegram_bridge.py": [
+      "last_update_id"
+    ],
+    "mcp-global\\mcp-global-rules\\scripts\\utils.py": [
+      "MCP_ROOT"
+    ]
+  },
+  "missing_vars": [
+    "yml",
+    "MCP_ROOT",
+    "json",
+    "AGENT_IDENTITY",
+    "TEMP",
+    "py",
+    "last_update_id",
+    "yaml"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "min_interval_minutes": 15,
+  "max_changes_before_commit": 50,
+  "commit_message_prefix": "[AUTO-BACKUP]",
+  "include_timestamp": true,
+  "track_file_count": true,
+  "branch_protection": [
+    "main",
+    "master",
+    "production"
+  ]
+}
